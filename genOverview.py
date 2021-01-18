@@ -17,6 +17,7 @@ import requests
 import hashlib
 import xml.etree.ElementTree as ET
 import pickle
+from datetime import datetime
 apiKey = '90e1ce22476d35f2d9ff3f6435b148e7'
 sharedSecret = 'BANANAS'
 sharedSecret = '7b62438b56355b78'
@@ -123,7 +124,9 @@ else:
         if len(taskName)>1:
             print("%30s\t%60s\t%s"%(taskName[0],taskName[1],dueDate))
             urlTask = 'https://www.rememberthemilk.com/app/#list/%s/%s'%(listID, taskID)
-            htmlString += ("<tr class='taskRow'><td><a href='%s'>%30s</a></td><td>%60s</td><td>%s</td></tr>"%(urlTask, taskName[0], taskName[1], dueDate))
+            htmlString += ("<tr class='taskRow'><td><a href='%s' target='_new'>%30s</a></td><td>%60s</td><td>%s</td></tr>"%(urlTask, taskName[0], taskName[1], dueDate))
             # htmlString += "<tr class='subTaskRow'><td>&nbsp;</td><td>Subtask</td><td>asdf</td></tr>"
-    htmlString += '</table></body></html>'
+    htmlString += '</table>'
+    htmlString += '<p>Updated at: ' + (datetime.now()).isoformat(sep=' ',timespec='seconds') +'</p>'
+    htmlString += '</body></html>'
     open('overview.html','w').write(htmlString)
