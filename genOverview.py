@@ -101,15 +101,25 @@ else:
     htmlString += 'th {background-color:#CC0000; color:white;}'
     #htmlString += '.subTaskRow {display:none};'
     htmlString += '</style></head><body><table><tr><th>Project description</th><th>Outcome / end game</th><th>Completion date</th></tr>'
-    taskList = ({t.get('name'):t for t in taskSeries.findall('*')})
+    taskList = ({t.find('task').get('due') + t.get('name'):t for t in taskSeries.findall('*')})
     print(taskList)
     for t in sorted(taskList.keys()):
         task = taskList[t]
-        print(t,task)
         taskID = (task.find('task').get('id'))
         dueDate = task.find('task').get('due').split('T')[0]
         taskName = (task.get('name'))
-        taskName = taskName.split('=>')
+        # Return (name, goal)
+        def parseDataFromTaskName(n):
+            if '{' in n:
+                name, data = n.split('{')
+                data = data.split('}')[0]
+                # You could turn this into a map using {a[0]:a{1} from...}
+                data = data.split(':')[1]
+            else:
+                name = n
+                data =''
+            return (name, data)
+        taskName = parseDataFromTaskName(taskName)
         if len(taskName)>1:
             print("%30s\t%60s\t%s"%(taskName[0],taskName[1],dueDate))
             urlTask = 'https://www.rememberthemilk.com/app/#list/%s/%s'%(listID, taskID)
