@@ -1,4 +1,4 @@
-# Copyright 2012 Vincent Vandalon
+#tasi Copyright 2012 Vincent Vandalon
 # 
 # This file is part of <++>. <++> is free software: you can redistribute
 # it and/or modify it under the terms of the GNU General Public License
@@ -56,60 +56,43 @@ def composeURL(url, params):
 # r = requests.get(composeURL(testURLRTM,testParams))
 # print(r.text)
 #T his checks out
+htmlHeader = '''
+    <html><head><style>
+    *{font-family:sans-serif;}
+    td, th{padding: .3em 2em .3em 2em;}
+    table, td {border:solid 0px #CC0000;border-collapse:collapse}
+    tr:nth-child(odd) td {background-color:lightgray; color:black;}
+    tr:last-child td {border:solid #CC0000;border-width:0 0 2px 0 }
+    th {background-color:#CC0000; color:white;}
+    .subTaskRow {display:none};
+    </style></head><body><table><tr><th>Project description</th><th>Outcome / end game</th><th>Log</th>
+    <th>Tags</th><th>Completion date</th></tr>
+'''
 
-if False:
-    frobParams={ 'method':'rtm.auth.getFrob', 'api_key':apiKey}
-    r = requests.get(composeURL(urlAPI,frobParams))
-    responseText = r.text
-    root = ET.fromstring(responseText)
-    print(responseText)
-    frob = root.find('frob').text
-
-    authParams={ 'perms':'read', 'api_key':apiKey, 'frob':frob}
-    print(composeURL(authURL,authParams))
-    pickle.dump(frob, open('frob.p','wb'))
-elif False:
-    frob = pickle.load(open('frob.p','rb'))
-    print(frob)
-
-    tokenParams={'method':'rtm.auth.getToken', 'api_key':apiKey, 'frob':frob}
-    r = requests.get(composeURL(urlAPI,tokenParams))
-    responseText = r.text
-    root = ET.fromstring(responseText)
-    print(">>" + responseText)
-    try:
-        authToken = root.find('auth').find('token').text
-        pickle.dump(authToken, open('authToken.p','wb'))
-    except:
-        pass
-
-else:
-    authToken = pickle.load(open('authToken.p','rb'))
-    frob = pickle.load(open('frob.p','rb'))
-
+def queryData(authToken,frob):
     listID = 36678032
-    tokenParams={'method':'rtm.tasks.getList', 'api_key':apiKey, 'frob':frob, 'auth_token':authToken, 'list_id':str(listID),
-            'filter':'status:incomplete'} 
+    tokenParams={'method':'rtm.tasks.getList', 'api_key':apiKey, 'frob':frob, 'auth_token':authToken, #'list_id':str(listID),
+            'filter':'list:workProjects-TUe AND status:incomplete'} 
     r = requests.get(composeURL(urlAPI,tokenParams))
     root = ET.fromstring(r.text)
+    #print(ET.tostring(root))
     taskSeries = root[0][0]#.find('list'))#.find('taskseries'))
-    htmlString = '<html><head><style>'
-    htmlString += '*{font-family:sans-serif;}'
-    htmlString += 'td, th{padding: .3em 2em .3em 2em;}'
-    htmlString += 'table, td {border:solid 0px #CC0000;border-collapse:collapse}'
-    htmlString += 'tr.taskRow:nth-child(odd) td {background-color:lightgray; color:black;}'
-    htmlString += 'tr.taskRow:last-child td {border:solid #CC0000;border-width:0 0 2px 0 }'
-    htmlString += 'th {background-color:#CC0000; color:white;}'
-    #htmlString += '.subTaskRow {display:none};'
-    htmlString += '</style></head><body><table><tr><th>Project description</th><th>Outcome / end game</th><th>Completion date</th></tr>'
-    taskList = ({t.find('task').get('due') + t.get('name'):t for t in taskSeries.findall('*')})
-    print(taskList)
-    for t in sorted(taskList.keys()):
-        task = taskList[t]
+    htmlString = htmlHeader
+
+    def taskToHTML(task):
+        #print(task)
         taskID = (task.find('task').get('id'))
         dueDate = task.find('task').get('due').split('T')[0]
+        tags = task.find('tags')
+        tagsString = ''
+        for tag in tags.findall('*'):
+            if tag.text != 'work':
+                tagsString += '<p style="background-color:#CC0000;color:white;padding:0 1px 0 1px;margin:0 3px 0 3px;">' + tag.text + '</p>'
         taskName = (task.get('name'))
-        # Return (name, goal)
+        taskURL = (task.get('url'))
+        taskURLDesc = 'Logging'
+        if len(taskURL) < 6:
+            taskURLDesc ='-'
         def parseDataFromTaskName(n):
             if '{' in n:
                 name, data = n.split('{')
@@ -121,12 +104,58 @@ else:
                 data =''
             return (name, data)
         taskName = parseDataFromTaskName(taskName)
+        htmlString = ''
         if len(taskName)>1:
-            print("%30s\t%60s\t%s"%(taskName[0],taskName[1],dueDate))
+            #print("%30s\t%60s\t%s"%(taskName[0],taskName[1],dueDate))
             urlTask = 'https://www.rememberthemilk.com/app/#list/%s/%s'%(listID, taskID)
-            htmlString += ("<tr class='taskRow'><td><a href='%s' target='_new'>%30s</a></td><td>%60s</td><td>%s</td></tr>"%(urlTask, taskName[0], taskName[1], dueDate))
-            # htmlString += "<tr class='subTaskRow'><td>&nbsp;</td><td>Subtask</td><td>asdf</td></tr>"
+            htmlString = "<tr class='taskRow'><td><a href='%s' target='_new'>%30s</a></td>"%(urlTask, taskName[0],)
+            htmlString += "<td>%60s</td><td><a href='%s' target='_new'>%s</a></td><td>%s</td><td>%s</td></tr>"%(taskName[1], taskURL, taskURLDesc, tagsString, dueDate)
+
+        return htmlString
+
+
+    taskList = ({t.find('task').get('due') + t.get('name'):t for t in taskSeries.findall('*')})
+    #print(taskList)
+    for t in sorted(taskList.keys()):
+        task = taskList[t]
+        htmlString +=  taskToHTML(task)
     htmlString += '</table>'
     htmlString += '<p>Updated at: ' + (datetime.now()).isoformat(sep=' ',timespec='seconds') +'</p>'
     htmlString += '</body></html>'
     open('overview.html','w').write(htmlString)
+
+    print('Updated at: ' + (datetime.now()).isoformat(sep=' ',timespec='seconds'))
+
+
+try:
+    authToken = pickle.load(open('authToken.p','rb'))
+    frob = pickle.load(open('frob.p','rb'))
+    queryData(authToken, frob)
+
+except:
+    frobParams={ 'method':'rtm.auth.getFrob', 'api_key':apiKey}
+    r = requests.get(composeURL(urlAPI,frobParams))
+    responseText = r.text
+    root = ET.fromstring(responseText)
+    frob = root.find('frob').text
+
+    authParams={ 'perms':'read', 'api_key':apiKey, 'frob':frob}
+    print(composeURL(authURL,authParams))
+    pickle.dump(frob, open('frob.p','wb'))
+    print('Goto URL above and press enter when done')
+    input()
+    frob = pickle.load(open('frob.p','rb'))
+    print(frob)
+
+    tokenParams={'method':'rtm.auth.getToken', 'api_key':apiKey, 'frob':frob}
+    r = requests.get(composeURL(urlAPI,tokenParams))
+    responseText = r.text
+    root = ET.fromstring(responseText)
+    print(">>" + responseText)
+    try:
+        authToken = root.find('auth').find('token').text
+        pickle.dump(authToken, open('authToken.p','wb'))
+        queryData(authToken, frob)
+    except Exception as e:
+        print(e)
+        print('Something went wrong, clear p files')
